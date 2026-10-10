@@ -2,8 +2,9 @@ import QtQuick
 import QtQuick.Controls.Basic
 
 ApplicationWindow {
-    width: 1280
-    height: 720
+    width: 1200
+    height: 760
+    visibility: Window.Maximized
     visible: true
     title: "Car Showroom"
 
