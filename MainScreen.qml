@@ -339,6 +339,7 @@ Rectangle {
                             width: 80
                             height: 20
                             font.pixelSize: 12
+                            placeholderText: "напр. BMW"
                             passwordCharacter: "\u25cf"
                             inputMask: ""
                             selectedTextColor: "#ffffff"
@@ -369,6 +370,7 @@ Rectangle {
                                 width: 80
                                 height: 20
                                 font.pixelSize: 12
+                                placeholderText: "напр. 15000"
                                 inputMask: ""
                                 Layout.preferredHeight: 28
                                 Layout.preferredWidth: 114
@@ -391,6 +393,7 @@ Rectangle {
                                 width: 80
                                 height: 20
                                 font.pixelSize: 12
+                                placeholderText: "напр. 45500"
                                 Layout.preferredHeight: 28
                                 Layout.preferredWidth: 114
                             }
@@ -520,8 +523,9 @@ Rectangle {
                                 Layout.preferredHeight: 28
                                 Layout.preferredWidth: 130
                                 font.pixelSize: 13
+                                Layout.fillWidth: true
 
-                                model: ["Моделью","Роком виготовлення","Потужністю двигуна","кольором","Витратою палива","Станом"]
+                                model: ["Роком виготовлення","Потужністю двигуна","Витратою палива"]
 
                                 background: Rectangle {
                                     color: "#ffffff"
