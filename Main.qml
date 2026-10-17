@@ -2,12 +2,12 @@ import QtQuick
 import QtQuick.Controls.Basic
 
 ApplicationWindow {
-    width: 760
-    height: 640
+    width: 900
+    height: 620
     visible: true
     title: "Car Showroom"
 
-    CarEdit {
+    CarConfiguration {
         anchors.fill: parent
     }
 }
