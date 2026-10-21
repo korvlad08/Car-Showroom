@@ -14,6 +14,8 @@ private:
     int mileage;
     Condition condition;
 
+    int id;
+
     static int currentYear();
 public:
     explicit Car();
@@ -25,6 +27,7 @@ public:
     int getPrice() const noexcept;
     int getMileage() const noexcept;
     Condition getCondition() const noexcept;
+    int getId() const noexcept;
 
     std::string getFullName() const;
 
@@ -34,6 +37,7 @@ public:
     void setPrice(int price);
     void setMileage(int mileage);
     void setCondition(Condition condition);
+    int setId(int id);
 
     void validate() const;
 };

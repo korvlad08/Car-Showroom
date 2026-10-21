@@ -10,6 +10,7 @@ Car::Car()
     this->price=0;
     this->mileage=0;
     this->condition=Condition::Unknowm;
+    this->id=0;
 }
 
 Car::Car(const std::string brand, const std::string model, int year, int price, int mileage, Condition condition)
@@ -20,6 +21,7 @@ Car::Car(const std::string brand, const std::string model, int year, int price, 
     this->price=price;
     this->mileage=mileage;
     this->condition=condition;
+    this->id=0;
 
     validate();
 }
@@ -52,6 +54,11 @@ int Car::getMileage() const noexcept
 Condition Car::getCondition() const noexcept
 {
     return this->condition;
+}
+
+int Car::getId() const noexcept
+{
+    return id;
 }
 
 std::string Car::getFullName() const
@@ -107,6 +114,11 @@ void Car::setMileage(int mileage)
 void Car::setCondition(Condition condition)
 {
     this->condition=condition;
+}
+
+void Car::setId(int id)
+{
+    this->id=id;
 }
 
 void Car::validate() const
