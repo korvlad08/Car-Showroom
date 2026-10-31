@@ -9,7 +9,7 @@
 
 namespace {
 
-constexpr int FIELD_COUNT = 7;   // кількість полів у рядку файлу (f[0]..f[6])
+constexpr int FIELD_COUNT = 6;   // кількість полів у рядку файлу (f[0]..f[6])
 
 std::vector<std::string> split(const std::string& s, char delim)
 {
@@ -55,12 +55,12 @@ Car CarFileManager::parseLine(const std::string& line, int lineNum) const
     std::vector<std::string> f = split(line, delimiter);
     if(f.size() != FIELD_COUNT)
     {
-        throw InvalidFormatException(lineNum, "waiting" + std::to_string(FIELD_COUNT) + "lines, found" + std::to_string(f.size()));
+        throw InvalidFormatException(lineNum, "Waiting " + std::to_string(FIELD_COUNT) + " lines, found " + std::to_string(f.size()));
     }
 
     int year = toInt(f[2],lineNum,"year");
-    int mileage = toInt(f[4], lineNum, "mileage");
-    int price = toInt(f[6],lineNum, "price");
+    int price = toInt(f[3], lineNum, "price");
+    int mileage = toInt(f[4],lineNum, "mileage");
 
     Condition cond;
     if(f[5]=="New")
@@ -93,7 +93,7 @@ std::string CarFileManager::toLine(const Car& car) const
 
 std::vector<Car> CarFileManager::load(const std::string& path) const
 {
-    std::ifstream in("cars.dat");
+    std::ifstream in(path);
     if(!in.is_open())
     {
         throw FileOpenException(path);
@@ -101,12 +101,12 @@ std::vector<Car> CarFileManager::load(const std::string& path) const
 
     std::string line;
     std::vector<Car> cars;
-    int lineNum;
+    int lineNum = 0;
 
     while(std::getline(in,line))
     {
         ++lineNum;
-        if(line.empty() || line.back() == '\r')
+        if(!line.empty() && line.back() == '\r')
         {
             line.pop_back();
         }
