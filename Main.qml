@@ -7,7 +7,7 @@ ApplicationWindow {
     visible: true
     title: "Car Showroom"
 
-    CarConfiguration {
+    MainScreen {
         anchors.fill: parent
     }
 }

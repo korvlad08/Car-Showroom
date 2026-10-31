@@ -2,9 +2,9 @@
 #define ENUMS_H
 
 #include <string>
-#include "../exceptions/InvalidFormatException.h"
+#include "../exceptions/showroomexception.h"
 
-enum class Condition {Used, New};
+enum class Condition {Used, New, Unknowm};
 
 enum class SortField { Year, Price, Mileage};
 
@@ -25,17 +25,16 @@ inline std::string conditionToString(Condition c)
 
 inline Condition conditionFromString(std::string c, int line = 0)
 {
-    switch (c) {
-    case "New":
+    if (c == "New")
+    {
         return Condition::New;
-        break;
-    case "Used":
-        return Condition::Used;
-        break;
-    default:
-        throw InvalidFormatException(line, "Невідомий стан авто: " + s +"\n");
-        break;
     }
+    if (c == "Used")
+    {
+        return Condition::Used;
+    }
+
+    throw InvalidFormatException(line, "Невідомий стан: " + c);
 }
 
 #endif // ENUMS_H

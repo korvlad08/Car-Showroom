@@ -1,0 +1,4 @@
+#ifndef COLOROPTION_H
+#define COLOROPTION_H
+
+#endif // COLOROPTION_H

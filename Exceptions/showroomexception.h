@@ -1,48 +1,49 @@
 #ifndef SHOWROOMEXCEPTION_H
 #define SHOWROOMEXCEPTION_H
 
-using namespace std;
+#include <stdexcept>
+#include <string>
 
-class ShowroomException : public runtime_error
+class ShowroomException : public std::runtime_error
 {
 public:
-    explicit ShowroomException(const srting& message);
+    explicit ShowroomException(const std::string& message) : std::runtime_error(message){}
 };
 
 class FileOpenException : public ShowroomException
 {
 private:
-    string getPath();
+    std::string path;
 
 public:
-    explicit FileOpenException(const string& path);
+    explicit FileOpenException(const std::string& path);
 
-    const string& getPath() const noexcept;
+    const std::string& getPath() const noexcept;
 };
 
 class InvalidFormatException : public ShowroomException
 {
 private:
     int line;
-    string details;
+    std::string details;
 
 public:
-    InvalidFormatException(int line, const string& details);
+    InvalidFormatException(int line, const std::string& details);
 
     int getLine() const noexcept;
-    const string getDetails() const noexcept;
+    const std::string getDetails() const noexcept;
 };
 
 class ValidationException : public ShowroomException
 {
 private:
-    string field, details;
+    std::string field, details;
 
 public:
-    ValidationException(const string& field, const string& details);
+    ValidationException(const std::string& field, const std::string& details);
 
-    const string getField() const noexcept;
-    const string getDetails() const noexcept;
+    const std::string getField() const noexcept;
+    const std::string getDetails() const noexcept;
 };
 
 class CarNotFoundException : public ShowroomException

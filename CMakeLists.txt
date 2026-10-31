@@ -36,6 +36,13 @@ qt_add_qml_module(appCarShowroom
         SOURCES Model/Showroom.cpp
         SOURCES Model/CarFileManager.h
         SOURCES Model/CarFileManager.cpp
+        SOURCES Model/Configuration/CarOption.h
+        SOURCES Model/Configuration/CarOption.cpp
+        SOURCES Model/Configuration/CarOption.cpp
+        SOURCES Model/Configuration/AddOn.h
+        SOURCES Model/Configuration/AddOn.cpp
+        SOURCES Model/Configuration/ColorOption.h
+        SOURCES Model/Configuration/ColorOption.cpp
     )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

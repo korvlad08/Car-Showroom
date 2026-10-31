@@ -1,4 +1,6 @@
 #include "search.h"
+#include <algorithm>
+#include <cctype>
 
 Search::Search()
 {
@@ -8,7 +10,7 @@ Search::Search()
     condition=std::nullopt;
 }
 
-Search::Search(std::string searchText, int minPrice, int maxPrice, std::optional<Condtition> condition)
+Search::Search(std::string searchText, int minPrice, int maxPrice, std::optional<Condition> condition)
 {
     this->searchText=searchText;
     this->minPrice=minPrice;
@@ -23,7 +25,7 @@ std::string Search::getSearchText() const noexcept
 
 int Search::getMinPrice() const noexcept
 {
-    return minPrice();
+    return minPrice;
 }
 
 int Search::getMaxPrice() const noexcept
@@ -38,7 +40,7 @@ std::optional<Condition> Search::getCondition() const noexcept
 
 void Search::setSearchText(std::string searchText)
 {
-    if(brand.empty())
+    if(searchText.empty())
     {
         throw ValidationException("Пошуковий текст", "Текс пошуку не може бути порожнім");
     }
@@ -90,7 +92,7 @@ bool Search::matches(const Car& car) const
         return false;
     }
 
-    if(!(car.getCondition() == this->condition()))
+    if(!(car.getCondition() == this->condition))
     {
         return false;
     }

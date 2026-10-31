@@ -1,7 +1,7 @@
 #ifndef CAR_H
 #define CAR_H
 
-#include <string.h>
+#include <string>
 #include "Enums.h"
 
 class Car
@@ -18,7 +18,7 @@ private:
 
     static int currentYear();
 public:
-    explicit Car();
+    Car();
     explicit Car(const std::string brand, const std::string model, int year, int price, int mileage, Condition condition);
 
     const std::string getBrand() const noexcept;
@@ -37,7 +37,7 @@ public:
     void setPrice(int price);
     void setMileage(int mileage);
     void setCondition(Condition condition);
-    int setId(int id);
+    void setId(int id);
 
     void validate() const;
 };

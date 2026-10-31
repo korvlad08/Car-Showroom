@@ -5,8 +5,7 @@
 
 Showroom::Showroom()
 {
-    nextId=0;
-    cars=nullptr;
+    nextId=1;
 }
 
 const std::vector<Car>& Showroom::getAll() const noexcept
@@ -14,7 +13,7 @@ const std::vector<Car>& Showroom::getAll() const noexcept
     return cars;
 }
 
-int Showroom::addCar(const Car car)
+int Showroom::addCar(Car car)
 {
     car.setId(nextId++);
     cars.push_back(car);
@@ -79,7 +78,7 @@ std::vector<Car> Showroom::search(const Search& criteria) const
     return result;
 }
 
-void Showroom::sort(SortField field, bool asc=true)
+void Showroom::sort(SortField field, bool asc)
 {
     ShellSort(cars,field,asc);
 }

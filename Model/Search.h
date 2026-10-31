@@ -15,7 +15,7 @@ private:
 
 public:
     explicit Search();
-    explicit Search(std::string searchText, int minPrice, int maxPrice, std::optional<Condtition> condition);
+    explicit Search(std::string searchText, int minPrice, int maxPrice, std::optional<Condition> condition);
 
     std::string getSearchText() const noexcept;
     int getMinPrice() const noexcept;

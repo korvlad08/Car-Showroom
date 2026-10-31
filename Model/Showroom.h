@@ -16,7 +16,7 @@ public:
     Showroom();
     const std::vector<Car>& getAll() const noexcept;
 
-    int addCar(const Car car);
+    int addCar(Car car);
     void removeCar(int id);
 
     const Car& findById(int id) const;

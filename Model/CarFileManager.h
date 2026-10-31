@@ -10,12 +10,13 @@ class CarFileManager
 private:
     char delimiter;
 
-    Car parseLine(std::string line, int lineNum);
-    std::string toLine(Car car);
+    Car parseLine(const std::string& line, int lineNum) const;
+    std::string toLine(const Car& car) const;
 
 public:
-    std::vector<Car> load(std::string path);
-    void save(std::string path, std::vector Car);
+    CarFileManager();
+    std::vector<Car> load(const std::string& path)const;
+    void save(const std::string& path, const std::vector<Car>& cars) const;
 };
 
 #endif // CARFILEMANAGER_H

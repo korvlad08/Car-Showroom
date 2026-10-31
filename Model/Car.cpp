@@ -1,5 +1,6 @@
 #include "Car.h"
-#include "../Exceptions/showroomexception"
+#include "Enums.h"
+#include "../Exceptions/showroomexception.h"
 #include <ctime>
 
 Car::Car()
@@ -86,7 +87,7 @@ void Car::setModel(std::string model)
 
 void Car::setYear(int year)
 {
-    if(year<1885)
+    if(year<1885 || year>currentYear())
     {
         throw ValidationException("Рік","Рік має бути більше 1885");
     }
@@ -95,7 +96,7 @@ void Car::setYear(int year)
 
 void Car::setPrice(int price)
 {
-    if(price>0)
+    if(price<=0)
     {
         throw ValidationException("Ціна","Ціна має бути більше 0");
     }
@@ -104,7 +105,7 @@ void Car::setPrice(int price)
 
 void Car::setMileage(int mileage)
 {
-    if(mileage>0)
+    if(mileage<0)
     {
         throw ValidationException("Пробіг","Пробіг має бути більше 0");
     }
@@ -133,7 +134,7 @@ void Car::validate() const
     }
     if(year<1885 || year>currentYear())
     {
-        throw ValidationException("Рік", "Некоректний рік: " + std::to_string(m_year));
+        throw ValidationException("Рік", "Некоректний рік: " + std::to_string(year));
     }
     if(price<=0)
     {
