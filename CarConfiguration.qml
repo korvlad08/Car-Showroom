@@ -12,39 +12,13 @@ Item {
     signal applyClicked()
     signal cancelClicked()
 
-    property int basePrice: 28900
-
-    property var trimCards: [baseConfiguration, comfortConfiguration, premiumConfiguration]
-    property var selectedTrim: premiumConfiguration.checked ? premiumConfiguration
-                             : comfortConfiguration.checked ? comfortConfiguration
-                             : baseConfiguration
-
-    property var allOptions: [optRoof, optTowbar, optCruise, optTires, optWheel, optMats]
-    property var selectedOptions: allOptions.filter(o => o.checked)
-
-    property var carColors: [
-        { name: qsTr("Білий"),    hex: "#ffffff" },
-        { name: qsTr("Чорний"),   hex: "#1e1e1e" },
-        { name: qsTr("Сірий"),    hex: "#8c8c8c" },
-        { name: qsTr("Синій"),    hex: "#1f4e8c" },
-        { name: qsTr("Червоний"), hex: "#a3222a" }
-    ]
-    property int selectedColorIndex: 1
-    property string selectedColorName: carColors[selectedColorIndex].name
-    property string selectedEngine: engineCmb.currentText
-
-    property int totalPrice: basePrice
-                             + selectedTrim.extraPrice
-                             + selectedOptions.reduce((sum, o) => sum + o.price, 0)
+    // Усі дані беруться з ConfiguratorController (C++), екран лише показує їх
+    readonly property var selectedTrim: configurator.trimIndex >= 0 ? configurator.trims[configurator.trimIndex] : null
+    readonly property var selectedColor: configurator.colorIndex >= 0 ? configurator.colors[configurator.colorIndex] : null
+    readonly property var selectedOptions: configurator.addOns.filter((o, i) => configurator.addOnStates[i] === true)
 
     function money(v) {
         return "$" + Number(v).toLocaleString(Qt.locale("uk_UA"), "f", 0)
-    }
-
-    function resetConfig() {
-        baseConfiguration.checked = true
-        for (const o of allOptions)
-            o.checked = false
     }
 
     component SectionBox: GroupBox {
@@ -89,6 +63,7 @@ Item {
         Layout.preferredWidth: 1
         implicitHeight: 82
         padding: 12
+        checkable: false
 
         indicator: Rectangle {
             implicitWidth: 14
@@ -148,6 +123,7 @@ Item {
         property int price: 0
 
         text: optionName + " (+ " + carConfiguration.money(price) + ")"
+        checkable: false
         font.pixelSize: 13
         spacing: 8
         padding: 2
@@ -272,24 +248,18 @@ Item {
                             anchors.fill: parent
                             spacing: 10
 
-                            TrimCard {
-                                id: baseConfiguration
-                                text: "Base"
-                                description: qsTr("Базове оснащення")
-                                extraPrice: 0
-                                checked: true
-                            }
-                            TrimCard {
-                                id: comfortConfiguration
-                                text: "Comfort"
-                                description: qsTr("Клімат-контроль, камера")
-                                extraPrice: 2400
-                            }
-                            TrimCard {
-                                id: premiumConfiguration
-                                text: "Premium"
-                                description: qsTr("Шкіра, LED, JBL")
-                                extraPrice: 5900
+                            Repeater {
+                                model: configurator.trims
+
+                                delegate: TrimCard {
+                                    required property var modelData
+                                    required property int index
+                                    text: modelData.name
+                                    description: modelData.features || qsTr("Базове оснащення")
+                                    extraPrice: modelData.price
+                                    checked: configurator.trimIndex === index
+                                    onClicked: configurator.selectTrim(index)
+                                }
                             }
                         }
                     }
@@ -311,51 +281,14 @@ Item {
                                 Layout.preferredWidth: 110
                             }
 
-                            ComboBox {
-                                id: engineCmb
+                            // Двигун — характеристика самого авто, тут лише показується
+                            Text {
+                                text: configurator.carEngine || "—"
+                                font.pixelSize: 13
+                                color: "#1a1a1a"
                                 Layout.fillWidth: true
                                 Layout.preferredHeight: 28
-                                font.pixelSize: 13
-                                model: [
-                                    qsTr("2.5 гібрид, 218 к.с. — 5.8 л/100 км"),
-                                    qsTr("2.0 бензин, 175 к.с. — 7.1 л/100 км"),
-                                    qsTr("2.5 бензин, 203 к.с. — 7.8 л/100 км")
-                                ]
-
-                                contentItem: Text {
-                                    leftPadding: 8
-                                    rightPadding: engineCmb.indicator.width + 12
-                                    text: engineCmb.displayText
-                                    font: engineCmb.font
-                                    color: "#1a1a1a"
-                                    verticalAlignment: Text.AlignVCenter
-                                    elide: Text.ElideRight
-                                }
-
-                                indicator: Canvas {
-                                    x: engineCmb.width - width - 10
-                                    y: (engineCmb.height - height) / 2
-                                    width: 10
-                                    height: 6
-                                    onPaint: {
-                                        var ctx = getContext("2d")
-                                        ctx.reset()
-                                        ctx.lineWidth = 1.5
-                                        ctx.strokeStyle = "#1a1a1a"
-                                        ctx.lineCap = "round"
-                                        ctx.beginPath()
-                                        ctx.moveTo(1, 1)
-                                        ctx.lineTo(width / 2, height - 1)
-                                        ctx.lineTo(width - 1, 1)
-                                        ctx.stroke()
-                                    }
-                                }
-
-                                background: Rectangle {
-                                    color: "#ffffff"
-                                    border.color: engineCmb.popup.visible ? "#0067c0" : "#adadad"
-                                    radius: 3
-                                }
+                                verticalAlignment: Text.AlignVCenter
                             }
 
                             Text {
@@ -370,7 +303,7 @@ Item {
                                 spacing: 6
 
                                 Repeater {
-                                    model: carConfiguration.carColors
+                                    model: configurator.colors
 
                                     delegate: Rectangle {
                                         id: swatch
@@ -381,19 +314,28 @@ Item {
                                         Layout.preferredHeight: 28
                                         radius: 3
                                         color: modelData.hex
-                                        border.color: carConfiguration.selectedColorIndex === index ? "#0067c0" : "#adadad"
-                                        border.width: carConfiguration.selectedColorIndex === index ? 2 : 1
+                                        border.color: configurator.colorIndex === index ? "#0067c0" : "#adadad"
+                                        border.width: configurator.colorIndex === index ? 2 : 1
+
+                                        ToolTip.visible: swatchArea.containsMouse
+                                        ToolTip.text: swatch.modelData.description
+                                                      + (swatch.modelData.price > 0 ? " (+ " + carConfiguration.money(swatch.modelData.price) + ")" : "")
 
                                         MouseArea {
+                                            id: swatchArea
                                             anchors.fill: parent
+                                            hoverEnabled: true
                                             cursorShape: Qt.PointingHandCursor
-                                            onClicked: carConfiguration.selectedColorIndex = swatch.index
+                                            onClicked: configurator.selectColor(swatch.index)
                                         }
                                     }
                                 }
 
                                 Text {
-                                    text: carConfiguration.selectedColorName
+                                    text: !carConfiguration.selectedColor ? ""
+                                          : carConfiguration.selectedColor.description
+                                            + (carConfiguration.selectedColor.price > 0
+                                               ? " (+ " + carConfiguration.money(carConfiguration.selectedColor.price) + ")" : "")
                                     font.pixelSize: 13
                                     color: "#1a1a1a"
                                     Layout.leftMargin: 8
@@ -414,12 +356,22 @@ Item {
                             rowSpacing: 8
                             columnSpacing: 40
 
-                            OptionCheck { id: optRoof;   optionName: qsTr("Панорамний дах");            price: 1200; Layout.fillWidth: true }
-                            OptionCheck { id: optTowbar; optionName: qsTr("Фаркоп");                    price: 450;  Layout.fillWidth: true }
-                            OptionCheck { id: optCruise; optionName: qsTr("Адаптивний круїз-контроль"); shortName: qsTr("Адаптивний круїз"); price: 900; Layout.fillWidth: true }
-                            OptionCheck { id: optTires;  optionName: qsTr("Зимові шини");               price: 700;  Layout.fillWidth: true }
-                            OptionCheck { id: optWheel;  optionName: qsTr("Підігрів керма");            price: 250;  Layout.fillWidth: true }
-                            OptionCheck { id: optMats;   optionName: qsTr("Килимки салону");            price: 80;   Layout.fillWidth: true }
+                            Repeater {
+                                model: configurator.addOns
+
+                                delegate: OptionCheck {
+                                    required property var modelData
+                                    required property int index
+                                    optionName: modelData.name
+                                    price: modelData.price
+                                    checked: configurator.addOnStates[index] === true
+                                    onClicked: configurator.toggleAddOn(index)
+                                    Layout.fillWidth: true
+                                    ToolTip.visible: hovered
+                                    ToolTip.delay: 600
+                                    ToolTip.text: modelData.description
+                                }
+                            }
                         }
                     }
 
@@ -440,6 +392,15 @@ Item {
                         spacing: 10
 
                         Text {
+                            text: configurator.carName
+                            font.pixelSize: 15
+                            font.bold: true
+                            color: "#1a1a1a"
+                            elide: Text.ElideRight
+                            Layout.fillWidth: true
+                        }
+
+                        Text {
                             text: qsTr("Розрахунок ціни")
                             font.pixelSize: 13
                             font.bold: true
@@ -449,12 +410,18 @@ Item {
 
                         PriceRow {
                             name: qsTr("Базова ціна")
-                            value: carConfiguration.money(carConfiguration.basePrice)
+                            value: carConfiguration.money(configurator.basePrice)
                         }
 
                         PriceRow {
-                            name: carConfiguration.selectedTrim.text
-                            value: "+ " + carConfiguration.money(carConfiguration.selectedTrim.extraPrice)
+                            name: carConfiguration.selectedTrim ? carConfiguration.selectedTrim.name : ""
+                            value: "+ " + carConfiguration.money(carConfiguration.selectedTrim ? carConfiguration.selectedTrim.price : 0)
+                        }
+
+                        PriceRow {
+                            visible: carConfiguration.selectedColor !== null && carConfiguration.selectedColor.price > 0
+                            name: carConfiguration.selectedColor ? carConfiguration.selectedColor.name : ""
+                            value: "+ " + carConfiguration.money(carConfiguration.selectedColor ? carConfiguration.selectedColor.price : 0)
                         }
 
                         Repeater {
@@ -462,7 +429,7 @@ Item {
 
                             delegate: PriceRow {
                                 required property var modelData
-                                name: modelData.shortName
+                                name: modelData.name
                                 value: "+ " + carConfiguration.money(modelData.price)
                             }
                         }
@@ -477,7 +444,7 @@ Item {
 
                         PriceRow {
                             name: qsTr("Разом")
-                            value: carConfiguration.money(carConfiguration.totalPrice)
+                            value: carConfiguration.money(configurator.totalPrice)
                             bold: true
                             size: 16
                         }
@@ -487,7 +454,7 @@ Item {
                         FlatButton {
                             text: qsTr("Скинути до базової")
                             Layout.fillWidth: true
-                            onClicked: carConfiguration.resetConfig()
+                            onClicked: configurator.reset()
                         }
                     }
                 }

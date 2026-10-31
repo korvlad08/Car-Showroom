@@ -22,5 +22,5 @@ bool ColorOption::getMetalic()const noexcept
 
 std::string ColorOption::getDescription() const
 {
-    return metalic ? name + "metalic" : name;
+    return metalic ? name + " (metallic)" : name;
 }

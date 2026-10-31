@@ -5,7 +5,7 @@ AddOn::AddOn(std::string name, int price, std::string category) : CarOption(name
 {
     if(category.empty())
     {
-        throw ValidationException("Category", "Category is empty");
+        throw ValidationException("Category", "Category must not be empty");
     }
 }
 

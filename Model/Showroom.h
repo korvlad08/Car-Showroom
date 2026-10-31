@@ -18,6 +18,8 @@ public:
 
     int addCar(Car car);
     void removeCar(int id);
+    void replaceAll(const std::vector<Car>& newCars);
+    size_t count() const noexcept;
 
     const Car& findById(int id) const;
     void updateCar(int id,const Car& newData);

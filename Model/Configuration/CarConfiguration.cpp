@@ -2,6 +2,7 @@
 #include "../../Exceptions/showroomexception.h"
 
 #include <algorithm>
+#include <numeric>
 #include <sstream>
 
 CarConfiguration::CarConfiguration(const Car& car)
@@ -10,16 +11,31 @@ CarConfiguration::CarConfiguration(const Car& car)
     car.validate();
 }
 
-const Car& CarConfiguration::getCar()
+const Car& CarConfiguration::getCar() const noexcept
 {
     return car;
+}
+
+std::shared_ptr<TrimLevel> CarConfiguration::getTrim() const noexcept
+{
+    return trim;
+}
+
+std::shared_ptr<ColorOption> CarConfiguration::getColor() const noexcept
+{
+    return color;
+}
+
+const std::vector<std::shared_ptr<AddOn>>& CarConfiguration::getAddOns() const noexcept
+{
+    return addOns;
 }
 
 void CarConfiguration::setTrim(std::shared_ptr<TrimLevel> trim)
 {
     if(!trim)
     {
-        throw ValidationException("Trim", "Trim not found");
+        throw ValidationException("Trim", "Trim is not selected");
     }
     this->trim=trim;
 }
@@ -28,7 +44,7 @@ void CarConfiguration::setColor(std::shared_ptr<ColorOption> color)
 {
     if(!color)
     {
-        throw ValidationException("Color", "Color not found");
+        throw ValidationException("Color", "Color is not selected");
     }
 
     this->color=color;
@@ -38,36 +54,34 @@ void CarConfiguration::toggleAddOn(const std::shared_ptr<AddOn>& addOn)
 {
     if(!addOn)
     {
-        throw ValidationException("Option", "Option didnt chose");
+        throw ValidationException("Option", "Option is not selected");
     }
 
-    auto it = std::find(this->addOn.begin(),this->addOn.end(), addOn);
+    auto it = std::find(addOns.begin(), addOns.end(), addOn);
 
-    if(it!=this->addOn.end())
+    if(it!=addOns.end())
     {
-        this->addOn.erase(it);
+        addOns.erase(it);
     }
     else
     {
-        this->addOn.push_back(addOn);
+        addOns.push_back(addOn);
     }
 }
 
-const bool CarConfiguration::hasAddOn(const std::shared_ptr<AddOn>& addOn)
+bool CarConfiguration::hasAddOn(const std::shared_ptr<AddOn>& addOn) const
 {
     if(!addOn)
     {
-        throw ValidationException("Option", "Option didnt chose");
+        throw ValidationException("Option", "Option is not selected");
     }
 
-    auto it = std::find(this->addOn.begin(),this->addOn.end(), addOn);
-
-    return it!=this->addOn.end();
+    return std::find(addOns.begin(), addOns.end(), addOn) != addOns.end();
 }
 
-const int CarConfiguration::totalPrice() const
+int CarConfiguration::totalPrice() const
 {
-    int total= car.getPrice();
+    int total = car.getPrice();
 
     if(trim)
     {
@@ -77,52 +91,51 @@ const int CarConfiguration::totalPrice() const
     {
         total+=color->getPrice();
     }
-    for(const auto& a : addOn)
-    {
-        total+=a->getPrice();
-    }
-    return total;
+
+    return std::accumulate(addOns.begin(), addOns.end(), total,
+        [](int sum, const std::shared_ptr<AddOn>& a) { return sum + a->getPrice(); });
 }
 
-const std::string CarConfiguration::summary() const
+int CarConfiguration::surcharge() const
+{
+    return totalPrice() - car.getPrice();
+}
+
+std::string CarConfiguration::summary() const
 {
     std::ostringstream out;
 
-    out<<car.getFullName()<<" ("<<car.getYear()<<"\n";
+    out<<car.getFullName()<<" ("<<car.getYear()<<")\n";
 
-    out<<"Configuration: ";
-    if (trim)
-    {
-        out<<trim->getDescription();
-    }
-    else
-    {
-        out<<"not selected";
-    }
-    out<<"\n";
+    out<<"Trim: "<<(trim ? trim->getDescription() : "not selected")<<"\n";
+    out<<"Color: "<<(color ? color->getDescription() : "not selected")<<"\n";
 
-    out<<"Color: ";
-    if(color)
-    {
-        out<<color->getDescription();
-    }
-    else
-    {
-        out<<"not selected";
-    }
-    out<<"\n";
-
-    out<<"Addons: ";
-    if(addOn.empty())
+    out<<"Add-ons: ";
+    if(addOns.empty())
     {
         out<<"none";
     }
-
-    for(const auto& a : addOn)
+    for(const auto& a : addOns)
     {
-        out<<"\n -"<< a->getDescription();
+        out<<"\n - "<<a->getDescription();
     }
     out<<"\nTotal price: "<<totalPrice()<<" $";
 
     return out.str();
+}
+
+Car CarConfiguration::result() const
+{
+    if(!trim)
+    {
+        throw ValidationException("Trim", "Trim is not selected");
+    }
+    if(!color)
+    {
+        throw ValidationException("Color", "Color is not selected");
+    }
+
+    Car configured = car;
+    configured.setConfiguration(trim->getName(), color->getName(), surcharge());
+    return configured;
 }

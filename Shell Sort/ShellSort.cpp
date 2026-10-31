@@ -4,11 +4,11 @@ int compare(const Car& a, const Car& b, SortField field)
 {
     switch (field) {
     case SortField::Price:
-        if(a.getPrice()<b.getPrice())
+        if(a.getTotalPrice()<b.getTotalPrice())
         {
             return -1;
         }
-        else if(a.getPrice()==b.getPrice())
+        else if(a.getTotalPrice()==b.getTotalPrice())
         {
             return 0;
         }

@@ -34,7 +34,7 @@ inline Condition conditionFromString(std::string c, int line = 0)
         return Condition::Used;
     }
 
-    throw InvalidFormatException(line, "Невідомий стан: " + c);
+    throw InvalidFormatException(line, "Unknown state: " + c);
 }
 
 #endif // ENUMS_H

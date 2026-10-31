@@ -16,7 +16,7 @@ std::string TrimLevel::getDescription() const
     }
 
     std::string result = name + ": ";
-    for(int i = 0; i<features.size(); i++)
+    for(size_t i = 0; i<features.size(); i++)
     {
         if(i>0)
         {

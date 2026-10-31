@@ -1,7 +1,7 @@
 #ifndef SHELLSORT_H
 #define SHELLSORT_H
 
-#include "../Model/Car.h";
+#include "../Model/Car.h"
 #include "../Model/Enums.h"
 
 #include<vector>

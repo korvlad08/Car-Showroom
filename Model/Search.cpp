@@ -42,7 +42,7 @@ void Search::setSearchText(std::string searchText)
 {
     if(searchText.empty())
     {
-        throw ValidationException("Пошуковий текст", "Текс пошуку не може бути порожнім");
+        throw ValidationException("Search text", "Search text cannot be empty");
     }
     this->searchText=searchText;
 }
@@ -51,7 +51,7 @@ void Search::setMinPrice(int minPrice)
 {
     if(minPrice>0)
     {
-        throw ValidationException("Ціна","Ціна має бути більше 0");
+        throw ValidationException("Price","Price must be greater than 0");
     }
     this->minPrice=minPrice;
 }
@@ -60,7 +60,7 @@ void Search::setMaxPrice(int maxPrice)
 {
     if(maxPrice>0)
     {
-        throw ValidationException("Ціна","Ціна має бути більше 0");
+        throw ValidationException("Price","Price must be greater than 0");
     }
     this->maxPrice=maxPrice;
 }
@@ -82,17 +82,22 @@ std::string toLower(std::string s)
 
 bool Search::matches(const Car& car) const
 {
-    if(!(this->searchText == car.getFullName()))
-    {
-        return false;
-    }
-
     if(!searchText.empty() && toLower(car.getFullName()).find(toLower(searchText)) == std::string::npos)
     {
         return false;
     }
 
-    if(!(car.getCondition() == this->condition))
+    int price = car.getTotalPrice();
+    if(minPrice>0 && price<minPrice)
+    {
+        return false;
+    }
+    if(maxPrice>0 && price>maxPrice)
+    {
+        return false;
+    }
+
+    if(condition.has_value() && car.getCondition() != *condition)
     {
         return false;
     }

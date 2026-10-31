@@ -3,13 +3,17 @@
 #include "../Exceptions/showroomexception.h"
 
 #include <fstream>
+#include <iomanip>
+#include <locale>
 #include <sstream>
 #include <vector>
 #include <string>
 
 namespace {
 
-constexpr int FIELD_COUNT = 6;   // кількість полів у рядку файлу (f[0]..f[6])
+constexpr size_t OLD_FIELDS  = 6;
+constexpr size_t BASE_FIELDS = 8;
+constexpr size_t FULL_FIELDS = 11;
 
 std::vector<std::string> split(const std::string& s, char delim)
 {
@@ -39,8 +43,21 @@ int toInt(const std::string& s, int lineNum, const std::string& fieldName)
         return value;
     } catch (const std::exception&)
     {
-        throw InvalidFormatException(lineNum, "Поле \"" + fieldName + "\" не є числом: \"" + s + "\"");
+        throw InvalidFormatException(lineNum, "Field \"" + fieldName + "\" is not a number: \"" + s + "\"");
     }
+}
+
+// Читає дробове число з крапкою (7.8) незалежно від мови системи
+double toDouble(const std::string& s, int lineNum, const std::string& fieldName)
+{
+    std::istringstream in(s);
+    in.imbue(std::locale::classic());
+    double value = 0;
+    if (!(in >> value) || !in.eof())
+    {
+        throw InvalidFormatException(lineNum, "Field \"" + fieldName + "\" is not a number: \"" + s + "\"");
+    }
+    return value;
 }
 
 }
@@ -53,14 +70,17 @@ CarFileManager::CarFileManager()
 Car CarFileManager::parseLine(const std::string& line, int lineNum) const
 {
     std::vector<std::string> f = split(line, delimiter);
-    if(f.size() != FIELD_COUNT)
+    if(f.size() != OLD_FIELDS && f.size() != BASE_FIELDS && f.size() != FULL_FIELDS)
     {
-        throw InvalidFormatException(lineNum, "Waiting " + std::to_string(FIELD_COUNT) + " lines, found " + std::to_string(f.size()));
+        throw InvalidFormatException(lineNum, "Expected " + std::to_string(OLD_FIELDS) + ", " +
+                                                  std::to_string(BASE_FIELDS) + " or " +
+                                                  std::to_string(FULL_FIELDS) + " fields, found " +
+                                                  std::to_string(f.size()));
     }
 
-    int year = toInt(f[2],lineNum,"year");
+    int year = toInt(f[2], lineNum, "year");
     int price = toInt(f[3], lineNum, "price");
-    int mileage = toInt(f[4],lineNum, "mileage");
+    int mileage = toInt(f[4], lineNum, "mileage");
 
     Condition cond;
     if(f[5]=="New")
@@ -73,20 +93,57 @@ Car CarFileManager::parseLine(const std::string& line, int lineNum) const
     }
     else
     {
-        throw InvalidFormatException(lineNum,"Unknow condition: "+f[5]);
+        throw InvalidFormatException(lineNum, "Unknown condition: " + f[5]);
     }
 
-    Car result(f[0],f[1],year,price,mileage,cond);
+    std::string engine = "";
+    double consumption = 0.0;
+    if (f.size() >= BASE_FIELDS)
+    {
+        engine = f[6];
+        consumption = toDouble(f[7], lineNum, "consumption");
+    }
 
-    return result;
+    int optionsPrice = 0;
+    if (f.size() == FULL_FIELDS)
+    {
+        optionsPrice = toInt(f[10], lineNum, "surcharge");
+    }
+
+    try
+    {
+        Car result(f[0], f[1], year, price, mileage, cond, engine, consumption);
+
+        if (f.size() == FULL_FIELDS)
+        {
+            result.setConfiguration(f[8], f[9], optionsPrice);
+        }
+
+        return result;
+    }
+    catch (const ValidationException& e)
+    {
+        throw InvalidFormatException(lineNum, e.what());
+    }
 }
 
 std::string CarFileManager::toLine(const Car& car) const
 {
+    std::ostringstream cons;
+    cons.imbue(std::locale::classic());
+    cons << std::fixed << std::setprecision(1) << car.getConsumption();
+
     std::string str;
     str=car.getBrand()+delimiter+car.getModel()+delimiter+std::to_string(car.getYear())+
-        delimiter+std::to_string(car.getPrice())+delimiter+std::to_string(car.getMileage())+
-        delimiter+(car.getCondition() == Condition::New ? "New" : "Used");
+          delimiter+std::to_string(car.getPrice())+delimiter+std::to_string(car.getMileage())+
+          delimiter+(car.getCondition() == Condition::New ? "New" : "Used")+
+          delimiter+car.getEngine()+delimiter+cons.str();
+
+    if (car.isConfigured())
+    {
+        str += delimiter + car.getTrim() + delimiter + car.getColor() +
+               delimiter + std::to_string(car.getOptionsPrice());
+    }
 
     return str;
 }

@@ -20,6 +20,21 @@ int Showroom::addCar(Car car)
     return car.getId();
 }
 
+void Showroom::replaceAll(const std::vector<Car>& newCars)
+{
+    cars.clear();
+    nextId=1;
+    for (const Car& car : newCars)
+    {
+        addCar(car);
+    }
+}
+
+size_t Showroom::count() const noexcept
+{
+    return cars.size();
+}
+
 void Showroom::removeCar(int id)
 {
     auto it=std::remove_if(cars.begin(),cars.end(),[id](const Car& c)

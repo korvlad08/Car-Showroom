@@ -5,12 +5,13 @@ CarOption::CarOption(std::string name, int price) : name(name), price(price)
 {
     if(name.empty())
     {
-        throw ValidationException("Name", "Name must be not empty");
+        throw ValidationException("Name", "Name must not be empty");
     }
 
-    if(price<=0)
+    // 0 is allowed: a base trim or a standard color can be free
+    if(price<0)
     {
-        throw ValidationException("Price","Price must be greater then 0");
+        throw ValidationException("Price", "Price must not be negative");
     }
 }
 

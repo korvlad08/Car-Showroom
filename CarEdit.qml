@@ -3,10 +3,137 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts 2.15
 import QtQuick.Controls 2.15
 
+// Форма додавання / редагування автомобіля.
+// openForNew() — порожня форма, openForEdit(id) — дані авто з контролера.
+// Перевірку значень робить C++ (Car::validate), помилку показує вікно в MainScreen.
+// Комплектація і колір тут лише показуються: їх задає конфігуратор (кнопка «Налаштувати…»).
 Item {
     id: carEditWindow
-    width: 760
-    height: 640
+    implicitWidth: 760
+    implicitHeight: 640
+
+    property int carId: -1                     // -1 — новий автомобіль
+    readonly property bool isNew: carId < 0
+
+    property string trimName: ""
+    property string colorName: ""
+
+    signal saved(int carId)
+    signal cancelled()
+    signal configureRequested(int carId)
+
+    function openForNew() {
+        carId = -1
+        trimName = ""
+        colorName = ""
+        brandInput.text = ""
+        modelInput.text = ""
+        yearInput.text = ""
+        fuelTypeCmb.currentIndex = 0
+        volumeEngineInput.text = ""
+        powerEngineInput.text = ""
+        fuelRateInput.text = ""
+        priceInput.text = ""
+        newRBtn.checked = true
+        mileageInput.text = "0"
+        brandInput.forceActiveFocus()
+    }
+
+    function openForEdit(id) {
+        const car = showroom.carForForm(id)
+        if (car.carId === undefined)
+            return false
+
+        carId = car.carId
+        trimName = car.trim
+        colorName = car.color
+
+        brandInput.text = car.brand
+        modelInput.text = car.model
+        yearInput.text = car.year
+        priceInput.text = car.price
+        mileageInput.text = car.mileage
+        newRBtn.checked = car.condition === "New"
+        usedRBtn.checked = car.condition !== "New"
+        fuelRateInput.text = car.consumption > 0 ? car.consumption.toFixed(1) : ""
+
+        const engine = parseEngine(car.engine)
+        fuelTypeCmb.currentIndex = engine.fuel
+        volumeEngineInput.text = engine.volume
+        powerEngineInput.text = engine.power
+
+        brandInput.forceActiveFocus()
+        return true
+    }
+
+    // Після «Застосувати» в конфігураторі оновлює лише комплектацію і колір,
+    // решта введених у формі значень лишається
+    function reloadConfiguration() {
+        const car = showroom.carForForm(carId)
+        if (car.carId !== undefined) {
+            trimName = car.trim
+            colorName = car.color
+        }
+    }
+
+    // "2.5 бензин, 200 к.с." -> { volume: "2.5", fuel: 0, power: "200" }
+    function parseEngine(text) {
+        const result = { volume: "", fuel: 0, power: "" }
+        if (!text)
+            return result
+
+        const power = text.match(/(\d+)\s*к\.с/)
+        if (power)
+            result.power = power[1]
+
+        const rest = text.replace(/,?\s*\d+\s*к\.с\.?/, "")
+        const volume = rest.match(/\d+(?:[.,]\d+)?/)
+        if (volume)
+            result.volume = volume[0].replace(",", ".")
+
+        const lower = rest.toLowerCase()
+        for (let i = 0; i < fuelTypeCmb.count; ++i) {
+            if (lower.indexOf(fuelTypeCmb.textAt(i).toLowerCase()) >= 0) {
+                result.fuel = i
+                break
+            }
+        }
+        return result
+    }
+
+    // Поля двигуна -> один рядок для Car::engine, напр. "2.5 бензин, 200 к.с."
+    function composeEngine() {
+        const volume = volumeEngineInput.text.trim().replace(",", ".")
+        let engine = (volume ? volume + " " : "") + fuelTypeCmb.currentText.toLowerCase()
+        const power = powerEngineInput.text.trim()
+        if (power)
+            engine += ", " + power + " к.с."
+        return engine
+    }
+
+    function save() {
+        const data = {
+            brand: brandInput.text,
+            model: modelInput.text,
+            year: yearInput.text,
+            price: priceInput.text,
+            mileage: mileageInput.text,
+            condition: newRBtn.checked ? "New" : "Used",
+            engine: composeEngine(),
+            consumption: fuelRateInput.text,
+            trim: trimName,
+            color: colorName
+        }
+
+        if (isNew) {
+            const newId = showroom.addCar(data)
+            if (newId > 0)
+                saved(newId)
+        } else if (showroom.editCar(carId, data)) {
+            saved(carId)
+        }
+    }
+
     Rectangle{
         id: carEditBack
         color: "#f3f3f3"
@@ -89,6 +216,7 @@ Item {
                             TextField {
                                 id: yearInput
                                 placeholderText: "1950-2026"
+                                validator: IntValidator { bottom: 0 }
                                 Layout.preferredHeight: 28
                                 Layout.fillWidth: true
                             }
@@ -111,7 +239,7 @@ Item {
                                     width: 200
                                     height: 200
                                     radius: 4
-                                    color: colorCmb.currentValue
+                                    color: configurator.colorHex(carEditWindow.colorName) || "transparent"
                                     border.color: "#adadad"
                                     Layout.preferredWidth: 28
                                     Layout.preferredHeight: 28
@@ -119,40 +247,13 @@ Item {
                                     Layout.fillHeight: false
                                 }
 
-                                ComboBox {
-                                    id: colorCmb
-                                    Layout.fillWidth: true
-                                    Layout.preferredHeight: 28
-
+                                Text {
+                                    id: colorValue
+                                    text: carEditWindow.colorName || qsTr("— (задається в конфігураторі)")
                                     font.pixelSize: 13
-
-                                    textRole: "name"
-                                    valueRole: "hex"
-                                    model: [
-                                            { name: "Білий",         hex: "#ffffff" },                                            { name: "Перламутровий", hex: "#f2efe6" },
-                                            { name: "Сріблястий",    hex: "#c0c4c8" },
-                                            { name: "Сірий",         hex: "#8a8f94" },
-                                            { name: "Графітовий",    hex: "#4a4e52" },
-                                            { name: "Чорний",        hex: "#1a1a1a" },
-                                            { name: "Червоний",      hex: "#c62828" },
-                                            { name: "Бордовий",      hex: "#7b1f2a" },
-                                            { name: "Синій",         hex: "#1565c0" },
-                                            { name: "Темно-синій",   hex: "#1c2e4a" },
-                                            { name: "Блакитний",     hex: "#5fa8d3" },
-                                            { name: "Зелений",       hex: "#2e7d32" },
-                                            { name: "Оливковий",     hex: "#6b6e3a" },
-                                            { name: "Бежевий",       hex: "#d8c8a8" },
-                                            { name: "Коричневий",    hex: "#6d4c41" },
-                                            { name: "Жовтий",        hex: "#f2c200" },
-                                            { name: "Помаранчевий",  hex: "#e8731a" }
-                                        ]
-
-                                    background: Rectangle {
-                                        color: "#ffffff"
-                                        border.color: "#c4c4c4"
-                                        border.width: 1
-                                        radius: 3
-                                    }
+                                    color: carEditWindow.colorName ? "#1a1a1a" : "#8a8a8a"
+                                    Layout.fillWidth: true
+                                    verticalAlignment: Text.AlignVCenter
                                 }
                             }
                         }
@@ -206,6 +307,7 @@ Item {
                             TextField {
                                 id: volumeEngineInput
                                 placeholderText: "напр. 2.5"
+                                validator: RegularExpressionValidator { regularExpression: /\d{0,2}([.,]\d?)?/ }
                                 Layout.preferredWidth: 100
                                 Layout.preferredHeight: 28
                             }
@@ -220,6 +322,7 @@ Item {
                             TextField {
                                 id: powerEngineInput
                                 placeholderText: "напр. 200"
+                                validator: IntValidator { bottom: 0; top: 2000 }
                                 Layout.preferredWidth: 100
                                 Layout.preferredHeight: 28
                             }
@@ -234,6 +337,7 @@ Item {
                             TextField {
                                 id: fuelRateInput
                                 placeholderText: "напр. 5.7"
+                                validator: RegularExpressionValidator { regularExpression: /\d{0,3}([.,]\d?)?/ }
                                 Layout.preferredWidth: 100
                                 Layout.preferredHeight: 28
                             }
@@ -266,22 +370,15 @@ Item {
                                 height: 100
                                 Layout.rightMargin: 10
 
-                                ComboBox {
-                                    id: configurationCmb
+                                Text {
+                                    id: trimValue
+                                    text: carEditWindow.trimName || "—"
+                                    font.pixelSize: 13
+                                    color: carEditWindow.trimName ? "#1a1a1a" : "#8a8a8a"
                                     Layout.fillWidth: true
                                     Layout.preferredWidth: 300
                                     Layout.preferredHeight: 28
-
-                                    font.pixelSize: 13
-
-                                    model: ["Standard","Comfort","Premium","Luxury","Sport"]
-
-                                    background: Rectangle {
-                                        color: "#ffffff"
-                                        border.color: "#c4c4c4"
-                                        border.width: 1
-                                        radius: 3
-                                    }
+                                    verticalAlignment: Text.AlignVCenter
                                 }
 
                                 Button {
@@ -289,6 +386,13 @@ Item {
                                     text: qsTr("Налаштувати...")
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: 28
+                                    enabled: !carEditWindow.isNew
+                                    onClicked: carEditWindow.configureRequested(carEditWindow.carId)
+                                    ToolTip.visible: hovered
+                                    ToolTip.delay: 300
+                                    ToolTip.text: carEditWindow.isNew
+                                                  ? qsTr("Спочатку збережіть автомобіль, потім налаштуйте комплектацію")
+                                                  : qsTr("Вибрати комплектацію, колір і опції в конфігураторі")
 
                                     font.pixelSize: 13
                                     Layout.preferredWidth: 150
@@ -298,7 +402,7 @@ Item {
                                     contentItem: Text {
                                         text: configurationBtn.text
                                         font: configurationBtn.font
-                                        color: "#1a1a1a"
+                                        color: configurationBtn.enabled ? "#1a1a1a" : "#9a9a9a"
                                         horizontalAlignment: Text.AlignHCenter
                                         verticalAlignment: Text.AlignVCenter
                                     }
@@ -323,6 +427,7 @@ Item {
                             TextField {
                                 id: priceInput
                                 placeholderText: "напр. 25500"
+                                validator: IntValidator { bottom: 0 }
                                 Layout.preferredHeight: 28
                             }
 
@@ -342,6 +447,7 @@ Item {
                                 RadioButton {
                                     id: newRBtn
                                     text: qsTr("Новий")
+                                    checked: true
                                     Layout.preferredHeight: 28
 
                                     font.pixelSize: 13
@@ -423,6 +529,7 @@ Item {
                                 TextField {
                                     id: mileageInput
                                     placeholderText: "напр. 135000"
+                                    validator: IntValidator { bottom: 0 }
                                     Layout.fillWidth: true
                                     Layout.preferredWidth: 150
                                     Layout.preferredHeight: 28
@@ -460,7 +567,7 @@ Item {
 
                         Text {
                             id: imgText
-                            text: qsTr("Text")
+                            text: qsTr("Фото не додано")
                             font.pixelSize: 12
                         }
 
@@ -547,6 +654,10 @@ Item {
                     text: qsTr("Зберегти")
                     Layout.preferredHeight: 28
                     Layout.fillWidth: false
+                    onClicked: carEditWindow.save()
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 600
+                    ToolTip.text: carEditWindow.isNew ? qsTr("Додати автомобіль до списку") : qsTr("Зберегти зміни")
 
                     font.pixelSize: 13
                     leftPadding: 12
@@ -574,6 +685,7 @@ Item {
                     text: qsTr("Скасувати")
                     Layout.preferredHeight: 28
                     Layout.fillWidth: false
+                    onClicked: carEditWindow.cancelled()
 
                     font.pixelSize: 13
                     leftPadding: 12

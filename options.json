@@ -1,0 +1,23 @@
+{
+    "trims": [
+        { "name": "Base",    "price": 0,    "features": [] },
+        { "name": "Comfort", "price": 2400, "features": ["клімат-контроль", "камера заднього виду"] },
+        { "name": "Premium", "price": 5900, "features": ["шкіряний салон", "LED-фари", "аудіосистема JBL"] }
+    ],
+    "colors": [
+        { "name": "Білий",         "price": 0,   "hex": "#ffffff", "metallic": false },
+        { "name": "Чорний",        "price": 0,   "hex": "#1e1e1e", "metallic": false },
+        { "name": "Сірий",         "price": 500, "hex": "#8c8c8c", "metallic": true },
+        { "name": "Синій",         "price": 500, "hex": "#1f4e8c", "metallic": true },
+        { "name": "Червоний",      "price": 700, "hex": "#a3222a", "metallic": true },
+        { "name": "Перламутровий", "price": 900, "hex": "#f2efe6", "metallic": true }
+    ],
+    "addOns": [
+        { "name": "Панорамний дах",            "price": 1200, "category": "Комфорт" },
+        { "name": "Фаркоп",                    "price": 450,  "category": "Практичність" },
+        { "name": "Адаптивний круїз-контроль", "price": 900,  "category": "Безпека" },
+        { "name": "Зимові шини",               "price": 700,  "category": "Сезонне" },
+        { "name": "Підігрів керма",            "price": 250,  "category": "Комфорт" },
+        { "name": "Килимки салону",            "price": 80,   "category": "Аксесуари" }
+    ]
+}

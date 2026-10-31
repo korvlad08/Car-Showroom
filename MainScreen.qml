@@ -2,15 +2,201 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts 2.15
 import QtQuick.Controls 2.15
+import QtQuick.Dialogs
 
 Rectangle {
     id: backGround
     width: 1280
     height: 720
-    property var car: carList.currentIndex >= 0 ? carModel.get(carList.currentIndex) : null
     clip: false
     transformOrigin: Item.Center
     color: "#f3f3f3"
+
+    // Обраний автомобіль (знімок рядка моделі). Оновлюється при виборі рядка
+    // і після кожної зміни таблиці (відкриття, пошук, сортування, видалення).
+    property var car: null
+    property bool sortAsc: true
+
+    function updateSelectedCar() {
+        const count = showroom.model.count
+        if (count === 0) {
+            car = null
+            return
+        }
+        if (carList.currentIndex < 0)
+            carList.currentIndex = 0
+        else if (carList.currentIndex >= count)
+            carList.currentIndex = count - 1
+        car = showroom.model.get(carList.currentIndex)
+    }
+
+    function doSearch() {
+        showroom.search(modelInput.text,
+                        parseInt(priceMinInput.text) || 0,
+                        parseInt(priceMaxInput.text) || 0,
+                        stateCmb.currentIndex)
+    }
+
+    function resetSearch() {
+        modelInput.text = ""
+        priceMinInput.text = ""
+        priceMaxInput.text = ""
+        stateCmb.currentIndex = 0
+        showroom.resetSearch()
+    }
+
+    function sortBy(field) {
+        sortCmb.currentIndex = field
+        showroom.sortBy(field, sortAsc)
+    }
+
+    function openAddForm() {
+        carEditForm.openForNew()
+        editDialog.open()
+    }
+
+    function openEditForm() {
+        if (car && carEditForm.openForEdit(car.carId))
+            editDialog.open()
+    }
+
+    function openConfigurator(id) {
+        if (id !== undefined && id >= 0 && configurator.open(id))
+            configDialog.open()
+    }
+
+    // Після додавання / редагування виділяє в таблиці збережене авто
+    function selectCar(id) {
+        for (let i = 0; i < showroom.model.count; ++i) {
+            if (showroom.model.get(i).carId === id) {
+                carList.currentIndex = i
+                carList.positionViewAtIndex(i, ListView.Contain)
+                break
+            }
+        }
+        updateSelectedCar()
+    }
+
+    function conditionText(condition) {
+        return condition === "New" ? qsTr("Новий") : qsTr("Вживаний")
+    }
+
+    function consumptionText(consumption) {
+        return consumption > 0 ? consumption.toFixed(1) : "—"
+    }
+
+    Connections {
+        target: showroom.model
+        function onModelReset() { Qt.callLater(backGround.updateSelectedCar) }
+    }
+
+    Connections {
+        target: showroom
+        function onErrorOccurred(message) {
+            errorDialog.text = message
+            errorDialog.open()
+        }
+    }
+
+    Connections {
+        target: configurator
+        function onErrorOccurred(message) {
+            errorDialog.text = message
+            errorDialog.open()
+        }
+        function onApplied(carId) {
+            configDialog.close()
+            if (editDialog.opened)
+                carEditForm.reloadConfiguration()
+            else
+                backGround.selectCar(carId)
+        }
+    }
+
+    FileDialog {
+        id: openDialog
+        title: qsTr("Відкрити файл з автомобілями")
+        nameFilters: [qsTr("Файли авто (*.dat *.txt)"), qsTr("Усі файли (*)")]
+        onAccepted: showroom.loadFromFile(selectedFile)
+    }
+
+    FileDialog {
+        id: saveDialog
+        title: qsTr("Зберегти автомобілі у файл")
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "dat"
+        nameFilters: [qsTr("Файли авто (*.dat)"), qsTr("Усі файли (*)")]
+        onAccepted: showroom.saveToFile(selectedFile)
+    }
+
+    MessageDialog {
+        id: errorDialog
+        title: qsTr("Помилка")
+        buttons: MessageDialog.Ok
+    }
+
+    MessageDialog {
+        id: deleteDialog
+        title: qsTr("Видалення")
+        text: qsTr("Видалити автомобіль %1?").arg(backGround.car ? backGround.car.name : "")
+        buttons: MessageDialog.Yes | MessageDialog.No
+        onButtonClicked: function(button, role) {
+            if (button === MessageDialog.Yes && backGround.car)
+                showroom.removeCar(backGround.car.carId)
+        }
+    }
+
+    Dialog {
+        id: editDialog
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(760, backGround.width - 40)
+        height: Math.min(640, backGround.height - 40)
+        modal: true
+        padding: 0
+        closePolicy: Popup.CloseOnEscape
+        title: carEditForm.isNew ? qsTr("Новий автомобіль") : qsTr("Редагування автомобіля")
+
+        contentItem: CarEdit {
+            id: carEditForm
+            onSaved: function(id) {
+                editDialog.close()
+                backGround.selectCar(id)
+            }
+            onCancelled: editDialog.close()
+            onConfigureRequested: function(id) { backGround.openConfigurator(id) }
+        }
+    }
+
+    Dialog {
+        id: configDialog
+        parent: Overlay.overlay
+        anchors.centerIn: parent
+        width: Math.min(900, backGround.width - 40)
+        height: Math.min(660, backGround.height - 40)
+        modal: true
+        padding: 0
+        closePolicy: Popup.CloseOnEscape
+        title: qsTr("Конфігуратор: %1").arg(configurator.carName)
+
+        contentItem: CarConfiguration {
+            onApplyClicked: configurator.apply()
+            onCancelClicked: configDialog.close()
+        }
+    }
+
+    MessageDialog {
+        id: aboutDialog
+        title: qsTr("Про програму")
+        text: qsTr("Car Showroom — облік автомобілів автосалону")
+        informativeText: qsTr("Відкрити / Зберегти — робота з файлом (*.dat).\n"
+                              + "Знайти — пошук за маркою або моделлю, ціною і станом.\n"
+                              + "Сортувати — сортування методом Шелла (↑ / ↓ — напрямок).\n"
+                              + "Додати / Редагувати — форма автомобіля (редагування також подвійним кліком по рядку).\n"
+                              + "Конфігурувати — комплектація, колір і додаткові опції з розрахунком ціни.\n"
+                              + "Видалити — видалення обраного автомобіля (також правою кнопкою миші по рядку).")
+        buttons: MessageDialog.Ok
+    }
 
     ColumnLayout {
         id: mainFormCol
@@ -48,16 +234,39 @@ Rectangle {
 
             Menu {
                 title: qsTr("Файл")
-                MenuItem { text: qsTr("Новий") }
+                MenuItem { text: qsTr("Відкрити…"); onTriggered: openDialog.open() }
+                MenuItem { text: qsTr("Зберегти як…"); onTriggered: saveDialog.open() }
+                MenuSeparator {}
                 MenuItem { text: qsTr("Вихід"); onTriggered: Qt.quit() }
             }
             Menu {
                 title: qsTr("Автомобіль")
-                MenuItem { text: qsTr("Параметри") }
+                MenuItem { text: qsTr("Додати…"); onTriggered: backGround.openAddForm() }
+                MenuItem {
+                    text: qsTr("Редагувати…")
+                    enabled: backGround.car !== null
+                    onTriggered: backGround.openEditForm()
+                }
+                MenuItem {
+                    text: qsTr("Конфігурувати…")
+                    enabled: backGround.car !== null
+                    onTriggered: backGround.openConfigurator(backGround.car.carId)
+                }
+                MenuSeparator {}
+                MenuItem {
+                    text: qsTr("Видалити")
+                    enabled: backGround.car !== null
+                    onTriggered: deleteDialog.open()
+                }
             }
             Menu {
                 title: qsTr("Пошук")
-                MenuItem { text: qsTr("Параметри") }
+                MenuItem { text: qsTr("Знайти"); onTriggered: backGround.doSearch() }
+                MenuItem { text: qsTr("Скинути пошук"); onTriggered: backGround.resetSearch() }
+                MenuSeparator {}
+                MenuItem { text: qsTr("Сортувати за роком"); onTriggered: backGround.sortBy(0) }
+                MenuItem { text: qsTr("Сортувати за ціною"); onTriggered: backGround.sortBy(1) }
+                MenuItem { text: qsTr("Сортувати за пробігом"); onTriggered: backGround.sortBy(2) }
             }
             Menu {
                 title: qsTr("Тест-драйв")
@@ -65,7 +274,7 @@ Rectangle {
             }
             Menu {
                 title: qsTr("Довідка")
-                MenuItem { text: qsTr("Параметри") }
+                MenuItem { text: qsTr("Про програму"); onTriggered: aboutDialog.open() }
             }
         }
 
@@ -91,6 +300,10 @@ Rectangle {
                     font.pixelSize: 13
                     leftPadding: 12
                     rightPadding: 12
+                    onClicked: openDialog.open()
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 600
+                    ToolTip.text: qsTr("Завантажити автомобілі з файлу")
 
                     contentItem: Text {
                         text: openBtn.text
@@ -116,6 +329,10 @@ Rectangle {
                     font.pixelSize: 13
                     leftPadding: 12
                     rightPadding: 12
+                    onClicked: saveDialog.open()
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 600
+                    ToolTip.text: qsTr("Зберегти всі автомобілі у файл")
 
                     contentItem: Text {
                         text: saveBtn.text
@@ -145,6 +362,10 @@ Rectangle {
                     font.pixelSize: 13
                     leftPadding: 12
                     rightPadding: 12
+                    onClicked: backGround.openAddForm()
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 600
+                    ToolTip.text: qsTr("Додати новий автомобіль")
 
                     contentItem: Text {
                         text: addBtn.text
@@ -172,11 +393,16 @@ Rectangle {
                     font.pixelSize: 13
                     leftPadding: 12
                     rightPadding: 12
+                    enabled: backGround.car !== null
+                    onClicked: backGround.openEditForm()
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 600
+                    ToolTip.text: qsTr("Змінити дані обраного автомобіля")
 
                     contentItem: Text {
                         text: changeBtn.text
                         font: changeBtn.font
-                        color: "#1a1a1a"
+                        color: changeBtn.enabled ? "#1a1a1a" : "#9a9a9a"
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -200,11 +426,16 @@ Rectangle {
                     font.pixelSize: 13
                     leftPadding: 12
                     rightPadding: 12
+                    enabled: backGround.car !== null
+                    onClicked: deleteDialog.open()
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 600
+                    ToolTip.text: qsTr("Видалити обраний автомобіль")
 
                     contentItem: Text {
                         text: delBtn.text
                         font: delBtn.font
-                        color: "#1a1a1a"
+                        color: delBtn.enabled ? "#1a1a1a" : "#9a9a9a"
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -233,11 +464,16 @@ Rectangle {
                     font.pixelSize: 13
                     leftPadding: 12
                     rightPadding: 12
+                    enabled: backGround.car !== null
+                    onClicked: backGround.openConfigurator(backGround.car.carId)
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 600
+                    ToolTip.text: qsTr("Вибрати комплектацію, колір і опції обраного автомобіля")
 
                     contentItem: Text {
                         text: configBtn.text
                         font: configBtn.font
-                        color: "#1a1a1a"
+                        color: configBtn.enabled ? "#1a1a1a" : "#9a9a9a"
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -340,12 +576,13 @@ Rectangle {
                             height: 20
                             font.pixelSize: 12
                             placeholderText: "напр. BMW"
-                            passwordCharacter: "\u25cf"
+                            passwordCharacter: "●"
                             inputMask: ""
                             selectedTextColor: "#ffffff"
                             selectionColor: "#0000ff"
                             Layout.preferredHeight: 28
                             Layout.preferredWidth: 234
+                            onAccepted: backGround.doSearch()
                         }
                     }
 
@@ -372,8 +609,10 @@ Rectangle {
                                 font.pixelSize: 12
                                 placeholderText: "напр. 15000"
                                 inputMask: ""
+                                validator: IntValidator { bottom: 0 }
                                 Layout.preferredHeight: 28
                                 Layout.preferredWidth: 114
+                                onAccepted: backGround.doSearch()
                             }
                         }
 
@@ -394,8 +633,10 @@ Rectangle {
                                 height: 20
                                 font.pixelSize: 12
                                 placeholderText: "напр. 45500"
+                                validator: IntValidator { bottom: 0 }
                                 Layout.preferredHeight: 28
                                 Layout.preferredWidth: 114
+                                onAccepted: backGround.doSearch()
                             }
                         }
                     }
@@ -446,6 +687,10 @@ Rectangle {
                             Layout.preferredHeight: 28
                             leftPadding: 12
                             rightPadding: 12
+                            onClicked: backGround.doSearch()
+                            ToolTip.visible: hovered
+                            ToolTip.delay: 600
+                            ToolTip.text: qsTr("Показати лише автомобілі, що відповідають умовам")
 
                             contentItem: Text {
                                 text: searchBtn.text
@@ -475,6 +720,10 @@ Rectangle {
                             Layout.fillHeight: false
                             leftPadding: 12
                             rightPadding: 12
+                            onClicked: backGround.resetSearch()
+                            ToolTip.visible: hovered
+                            ToolTip.delay: 600
+                            ToolTip.text: qsTr("Очистити умови пошуку і показати всі автомобілі")
 
                             contentItem: Text {
                                 text: resetBtn.text
@@ -514,7 +763,7 @@ Rectangle {
 
                             Text {
                                 id: sortText
-                                text: "Сортува(методом Шелла) за"
+                                text: "Сортувати (методом Шелла) за"
                                 font.pixelSize: 12
                             }
 
@@ -525,7 +774,8 @@ Rectangle {
                                 font.pixelSize: 13
                                 Layout.fillWidth: true
 
-                                model: ["Роком виготовлення","Потужністю двигуна","Витратою палива"]
+                                // Порядок відповідає sortBy у контролері: 0 — рік, 1 — ціна, 2 — пробіг
+                                model: ["Роком виготовлення","Ціною","Пробігом"]
 
                                 background: Rectangle {
                                     color: "#ffffff"
@@ -537,6 +787,40 @@ Rectangle {
                         }
 
                         Button {
+                            id: sortDirBtn
+                            text: backGround.sortAsc ? "↑" : "↓"
+                            Layout.alignment: Qt.AlignLeft | Qt.AlignBottom
+
+                            font.pixelSize: 13
+                            leftPadding: 8
+                            rightPadding: 8
+                            onClicked: {
+                                backGround.sortAsc = !backGround.sortAsc
+                                if (showroom.sortField >= 0)
+                                    showroom.sortBy(showroom.sortField, backGround.sortAsc)
+                            }
+                            ToolTip.visible: hovered
+                            ToolTip.delay: 600
+                            ToolTip.text: backGround.sortAsc ? qsTr("За зростанням") : qsTr("За спаданням")
+
+                            contentItem: Text {
+                                text: sortDirBtn.text
+                                font: sortDirBtn.font
+                                color: "#1a1a1a"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+
+                            background: Rectangle {
+                                implicitHeight: 28
+                                implicitWidth: 28
+                                radius: 3
+                                border.color: "#c4c4c4"
+                                color: sortDirBtn.down ? "#e2e2e2" : (sortDirBtn.hovered ? "#f2f2f2" : "#ffffff")
+                            }
+                        }
+
+                        Button {
                             id: sortBtn
                             text: qsTr("Сортувати")
                             Layout.alignment: Qt.AlignLeft | Qt.AlignBottom
@@ -544,6 +828,10 @@ Rectangle {
                             font.pixelSize: 13
                             leftPadding: 12
                             rightPadding: 12
+                            onClicked: backGround.sortBy(sortCmb.currentIndex)
+                            ToolTip.visible: hovered
+                            ToolTip.delay: 600
+                            ToolTip.text: qsTr("Відсортувати таблицю методом Шелла")
 
                             contentItem: Text {
                                 text: sortBtn.text
@@ -596,7 +884,8 @@ Rectangle {
                         clip: true
                         currentIndex: 0
 
-                        model: carModel
+                        model: showroom.model
+                        onCurrentIndexChanged: backGround.updateSelectedCar()
 
                         headerPositioning: ListView.OverlayHeader
 
@@ -690,14 +979,17 @@ Rectangle {
                         }
 
                         delegate: Rectangle {
+                            id: rowItem
+                            required property int carId
                             required property string name
                             required property int year
-                            required property string engine
-                            required property string carColor
-                            required property string trim
-                            required property double consumption
+                            required property int mileage
                             required property int price
                             required property string condition
+                            required property string engine
+                            required property double consumption
+                            required property string trim
+                            required property string carColor
                             required property int index
                             width: carList.width
                             height: 37
@@ -712,56 +1004,60 @@ Rectangle {
 
                                 Text {
                                     width: 160;
-                                    text: name;
+                                    text: rowItem.name;
                                     leftPadding: 8;
+                                    elide: Text.ElideRight
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
 
                                 Text {
                                     width: 60;
-                                    text: year;
+                                    text: rowItem.year;
                                     leftPadding: 8;
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
 
                                 Text {
                                     width: 160;
-                                    text: engine;
+                                    text: rowItem.engine || "—";
                                     leftPadding: 8;
+                                    elide: Text.ElideRight
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
 
                                 Text {
                                     width: 110;
-                                    text: carColor;
+                                    text: rowItem.carColor || "—";
                                     leftPadding: 8;
+                                    elide: Text.ElideRight
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
 
                                 Text {
                                     width: 160;
-                                    text: trim;
+                                    text: rowItem.trim || "—";
+                                    leftPadding: 8;
+                                    elide: Text.ElideRight
+                                    anchors.verticalCenter: parent.verticalCenter
+                                }
+
+                                Text {
+                                    width: 80;
+                                    text: backGround.consumptionText(rowItem.consumption);
                                     leftPadding: 8;
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
 
                                 Text {
                                     width: 80;
-                                    text: consumption;
+                                    text: rowItem.price;
                                     leftPadding: 8;
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
 
                                 Text {
                                     width: 80;
-                                    text: price;
-                                    leftPadding: 8;
-                                    anchors.verticalCenter: parent.verticalCenter
-                                }
-
-                                Text {
-                                    width: 80;
-                                    text: condition;
+                                    text: backGround.conditionText(rowItem.condition);
                                     leftPadding: 8;
                                     anchors.verticalCenter: parent.verticalCenter
                                 }
@@ -771,9 +1067,40 @@ Rectangle {
                             color: carList.currentIndex === index ? "#cce4f7" : "white"
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: carList.currentIndex = index
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onClicked: function(mouse) {
+                                    carList.currentIndex = rowItem.index
+                                    if (mouse.button === Qt.RightButton)
+                                        rowMenu.popup()
+                                }
+                                onDoubleClicked: function(mouse) {
+                                    if (mouse.button === Qt.LeftButton) {
+                                        carList.currentIndex = rowItem.index
+                                        backGround.openEditForm()
+                                    }
+                                }
                             }
                         }
+
+                        // Контекстне меню рядка (правий клік)
+                        Menu {
+                            id: rowMenu
+                            MenuItem { text: qsTr("Редагувати…"); onTriggered: backGround.openEditForm() }
+                            MenuItem { text: qsTr("Конфігурувати…"); onTriggered: backGround.openConfigurator(backGround.car ? backGround.car.carId : -1) }
+                            MenuItem { text: qsTr("Видалити"); onTriggered: deleteDialog.open() }
+                            MenuSeparator {}
+                            MenuItem { text: qsTr("Сортувати за роком"); onTriggered: backGround.sortBy(0) }
+                            MenuItem { text: qsTr("Сортувати за ціною"); onTriggered: backGround.sortBy(1) }
+                            MenuItem { text: qsTr("Сортувати за пробігом"); onTriggered: backGround.sortBy(2) }
+                        }
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        visible: showroom.model.count === 0
+                        text: showroom.searchActive ? qsTr("Нічого не знайдено") : qsTr("Немає автомобілів. Відкрийте файл (Файл → Відкрити…)")
+                        color: "#8a8a8a"
+                        font.pixelSize: 13
                     }
 
                     Rectangle {
@@ -822,7 +1149,7 @@ Rectangle {
                         }
 
                         Label {
-                            text: car ? car.name : ""; font.bold: true; font.pixelSize: 15
+                            text: backGround.car ? backGround.car.name : ""; font.bold: true; font.pixelSize: 15
                         }
 
                         GridLayout {
@@ -832,25 +1159,31 @@ Rectangle {
                             columns: 2
 
                             Label { text: qsTr("Рік") }
-                            Label { text: car ? car.year : "" }
+                            Label { text: backGround.car ? backGround.car.year : "" }
+
+                            Label { text: qsTr("Пробіг") }
+                            Label { text: backGround.car ? backGround.car.mileage + " км" : "" }
 
                             Label { text: qsTr("Двигун") }
-                            Label { text: car ? car.engine : "" }
+                            Label { text: backGround.car ? (backGround.car.engine || "—") : "" }
 
                             Label { text: qsTr("Колір") }
-                            Label { text: car ? car.carColor : "" }
+                            Label { text: backGround.car ? (backGround.car.carColor || "—") : "" }
 
                             Label { text: qsTr("Комплектація") }
-                            Label { text: car ? car.trim : "" }
+                            Label { text: backGround.car ? (backGround.car.trim || "—") : "" }
 
                             Label { text: qsTr("Витрата") }
-                            Label { text: car ? car.consumption + " л/100 км" : "" }
+                            Label {
+                                text: !backGround.car ? ""
+                                      : backGround.car.consumption > 0 ? backGround.car.consumption.toFixed(1) + " л/100 км" : "—"
+                            }
 
                             Label { text: qsTr("Стан") }
-                            Label { text: car ? car.condition : "" }
+                            Label { text: backGround.car ? backGround.conditionText(backGround.car.condition) : "" }
 
                             Label { text: qsTr("Ціна") }
-                            Label { text: car ? "$" + car.price : ""; font.bold: true }
+                            Label { text: backGround.car ? "$" + backGround.car.price : ""; font.bold: true }
                         }
 
                         Item {
@@ -910,12 +1243,6 @@ Rectangle {
             }
         }
 
-        ListModel {
-            id: carModel
-            ListElement { name: "Toyota Camry"; year: 2022; engine: "2.5 бензин, 203 к.с."; carColor: "Білий"; trim: "Comfort"; consumption: 7.8; price: 27500; condition: "Вживаний" }
-            ListElement { name: "BMW 3-series"; year: 2022; engine: "3.0 бензин, 305 к.с."; carColor: "Чорний"; trim: "Sport"; consumption: 15.0; price: 50000; condition: "Новий" }
-        }
-
         Rectangle {
             id: status
             width: 200
@@ -934,12 +1261,26 @@ Rectangle {
 
                 Text {
                     id: carCount
-                    text: qsTr("Знайдено: 6 з 14");
+                    text: qsTr("Знайдено: %1 з %2").arg(showroom.model.count).arg(showroom.totalCount)
                     font.pixelSize: 12
                     Layout.leftMargin: 10
                 }
-                Text { id: sortInfo; text: qsTr("Відсортовано за ціною (метод Шелла)"); font.pixelSize: 12 }
-                Text { id: fileInfo; text: qsTr("Файл: D:\\autosalon\\cars.dat"); font.pixelSize: 12 }
+                Text {
+                    id: sortInfo
+                    text: showroom.sortField < 0
+                          ? qsTr("Без сортування")
+                          : qsTr("Відсортовано за %1 %2 (метод Шелла)")
+                                .arg([qsTr("роком"), qsTr("ціною"), qsTr("пробігом")][showroom.sortField])
+                                .arg(showroom.sortAscending ? "↑" : "↓")
+                    font.pixelSize: 12
+                }
+                Text {
+                    id: fileInfo
+                    text: qsTr("Файл: %1").arg(showroom.currentFile || "—")
+                    font.pixelSize: 12
+                    elide: Text.ElideMiddle
+                    Layout.fillWidth: true
+                }
                 Item { id: statusSpace; Layout.fillHeight: true; Layout.fillWidth: true }
             }
 
